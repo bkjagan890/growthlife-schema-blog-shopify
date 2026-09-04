@@ -59,7 +59,7 @@
           "publisher": { "@id": {{ org_id | json }} },
           "potentialAction": {
             "@type": "SearchAction",
-            "target": { "@type": "EntryPoint", "urlTemplate": {{ org_url | append: '/search?q={search_term_string}' | json }} },
+            "target": { "@type": "EntryPoint", "urlTemplate": "{{ org_url | escape }}/search?q={search_term_string}" },
             "query-input": "required name=search_term_string"
           }
         }
