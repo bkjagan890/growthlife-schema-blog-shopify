@@ -1,0 +1,287 @@
+{%- comment -%}
+  GrowthLife Schema — JSON-LD for the storefront.
+
+  Settings come from the app's own metafield, written by the app's admin UI, so
+  the merchant never edits anything here. Every block is guarded by its own
+  toggle, because most themes already emit Product and Breadcrumb markup and two
+  copies of the same type on one page helps nobody.
+{%- endcomment -%}
+
+{%- liquid
+  assign s = app.metafields.settings.schema.value
+  assign site = shop.url
+  assign org_name = s.org_name | default: shop.name
+  assign org_url = s.org_url | default: site
+  assign org_id = org_url | append: '/#organization'
+  assign site_id = org_url | append: '/#website'
+-%}
+
+{%- if s -%}
+
+  {%- if s.organization_enabled -%}
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": {{ org_id | json }},
+          "name": {{ org_name | json }},
+          "url": {{ org_url | append: '/' | json }}
+          {%- if s.org_logo != blank -%}
+          , "logo": { "@type": "ImageObject", "url": {{ s.org_logo | json }} }
+          , "image": {{ s.org_logo | json }}
+          {%- endif -%}
+          {%- if s.org_description != blank -%}
+          , "description": {{ s.org_description | json }}
+          {%- endif -%}
+          {%- if s.gst_number != blank -%}
+          , "identifier": { "@type": "PropertyValue", "propertyID": "GST", "value": {{ s.gst_number | json }} }
+          {%- endif -%}
+          {%- if s.phone != blank or s.email != blank -%}
+          , "contactPoint": [{
+              "@type": "ContactPoint",
+              "contactType": "customer service"
+              {%- if s.phone != blank -%}, "telephone": {{ s.phone | json }}{%- endif -%}
+              {%- if s.email != blank -%}, "email": {{ s.email | json }}{%- endif -%}
+              {%- if s.address_country != blank -%}, "areaServed": {{ s.address_country | json }}{%- endif -%}
+            }]
+          {%- endif -%}
+          {%- if s.social_profiles != blank -%}
+          , "sameAs": {{ s.social_profiles | json }}
+          {%- endif -%}
+        },
+        {
+          "@type": "WebSite",
+          "@id": {{ site_id | json }},
+          "url": {{ org_url | append: '/' | json }},
+          "name": {{ org_name | json }},
+          "publisher": { "@id": {{ org_id | json }} },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": { "@type": "EntryPoint", "urlTemplate": {{ org_url | append: '/search?q={search_term_string}' | json }} },
+            "query-input": "required name=search_term_string"
+          }
+        }
+      ]
+    }
+    </script>
+  {%- endif -%}
+
+  {%- if s.local_enabled -%}
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": {{ s.local_type | default: 'LocalBusiness' | json }},
+      "@id": {{ org_url | append: '/#localbusiness' | json }},
+      "name": {{ s.local_name | default: org_name | json }},
+      "url": {{ org_url | append: '/' | json }},
+      "parentOrganization": { "@id": {{ org_id | json }} }
+      {%- if s.org_logo != blank -%}, "image": {{ s.org_logo | json }}{%- endif -%}
+      {%- if s.phone != blank -%}, "telephone": {{ s.phone | json }}{%- endif -%}
+      {%- if s.email != blank -%}, "email": {{ s.email | json }}{%- endif -%}
+      {%- if s.price_range != blank -%}, "priceRange": {{ s.price_range | json }}{%- endif -%}
+      {%- if s.address_street != blank or s.address_city != blank -%}
+      , "address": {
+          "@type": "PostalAddress"
+          {%- if s.address_street != blank -%}, "streetAddress": {{ s.address_street | json }}{%- endif -%}
+          {%- if s.address_city != blank -%}, "addressLocality": {{ s.address_city | json }}{%- endif -%}
+          {%- if s.address_region != blank -%}, "addressRegion": {{ s.address_region | json }}{%- endif -%}
+          {%- if s.address_postcode != blank -%}, "postalCode": {{ s.address_postcode | json }}{%- endif -%}
+          {%- if s.address_country != blank -%}, "addressCountry": {{ s.address_country | json }}{%- endif -%}
+        }
+      {%- endif -%}
+      {%- if s.latitude != blank and s.longitude != blank -%}
+      , "geo": { "@type": "GeoCoordinates", "latitude": {{ s.latitude | json }}, "longitude": {{ s.longitude | json }} }
+      {%- endif -%}
+      {%- if s.opening_hours != blank -%}, "openingHours": {{ s.opening_hours | json }}{%- endif -%}
+      {%- if s.map_url != blank -%}, "hasMap": {{ s.map_url | json }}{%- endif -%}
+    }
+    </script>
+  {%- endif -%}
+
+  {%- if s.product_enabled and request.page_type == 'product' -%}
+    {%- liquid
+      assign v = product.selected_or_first_available_variant
+      assign avail = 'https://schema.org/OutOfStock'
+      if product.available
+        assign avail = 'https://schema.org/InStock'
+      endif
+      assign price = v.price | divided_by: 100.0
+      assign valid_until = 'now' | date: '%Y' | plus: 1 | append: '-12-31'
+      assign desc = product.description | strip_html | strip_newlines | truncate: 900
+      assign rating = product.metafields[s.rating_namespace][s.rating_key]
+      assign rating_count = product.metafields[s.rating_count_namespace][s.rating_count_key]
+    -%}
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      "@id": {{ product.url | prepend: site | append: '#product' | json }},
+      "name": {{ product.title | json }},
+      "url": {{ product.url | prepend: site | json }}
+      {%- if desc != blank -%}, "description": {{ desc | json }}{%- endif -%}
+      {%- if product.featured_image -%}
+      , "image": [
+        {%- for image in product.images limit: 4 -%}
+          {{ image | image_url: width: 1600 | prepend: 'https:' | json }}{%- unless forloop.last -%},{%- endunless -%}
+        {%- endfor -%}
+        ]
+      {%- endif -%}
+      {%- if product.vendor != blank -%}, "brand": { "@type": "Brand", "name": {{ product.vendor | json }} }{%- endif -%}
+      , "manufacturer": { "@id": {{ org_id | json }} }
+      {%- if product.type != blank -%}, "category": {{ product.type | json }}{%- endif -%}
+      {%- if v.sku != blank -%}, "sku": {{ v.sku | json }}{%- endif -%}
+      {%- if v.barcode != blank -%}, "gtin": {{ v.barcode | json }}{%- endif -%}
+      {%- if s.gst_number != blank -%}
+      , "identifier": { "@type": "PropertyValue", "propertyID": "GST", "value": {{ s.gst_number | json }} }
+      {%- endif -%}
+      {%- if rating != blank and rating_count != blank and rating_count > 0 -%}
+      , "aggregateRating": {
+          "@type": "AggregateRating",
+          "ratingValue": {{ rating | json }},
+          "reviewCount": {{ rating_count | json }},
+          "bestRating": "5",
+          "worstRating": "1"
+        }
+      {%- endif -%}
+      , "offers": {
+          "@type": "Offer",
+          "url": {{ product.url | prepend: site | json }},
+          "price": {{ price | json }},
+          "priceCurrency": {{ cart.currency.iso_code | json }},
+          "availability": {{ avail | json }},
+          "itemCondition": {{ s.item_condition | default: 'NewCondition' | prepend: 'https://schema.org/' | json }},
+          "priceValidUntil": {{ valid_until | json }},
+          "seller": { "@id": {{ org_id | json }} }
+          {%- if s.shipping_enabled -%}
+          , "shippingDetails": {
+              "@type": "OfferShippingDetails",
+              "shippingRate": { "@type": "MonetaryAmount", "value": {{ s.shipping_rate | default: 0 | json }}, "currency": {{ cart.currency.iso_code | json }} },
+              "shippingDestination": { "@type": "DefinedRegion", "addressCountry": {{ s.ship_country | default: 'IN' | json }} },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": { "@type": "QuantitativeValue", "minValue": {{ s.handling_min | default: 1 }}, "maxValue": {{ s.handling_max | default: 2 }}, "unitCode": "DAY" },
+                "transitTime": { "@type": "QuantitativeValue", "minValue": {{ s.transit_min | default: 3 }}, "maxValue": {{ s.transit_max | default: 7 }}, "unitCode": "DAY" }
+              }
+            }
+          {%- endif -%}
+          {%- if s.returns_enabled -%}
+          , "hasMerchantReturnPolicy": {
+              "@type": "MerchantReturnPolicy",
+              "applicableCountry": {{ s.ship_country | default: 'IN' | json }},
+              "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+              "merchantReturnDays": {{ s.return_days | default: 7 }},
+              "returnMethod": {{ s.return_method | default: 'ReturnByMail' | prepend: 'https://schema.org/' | json }},
+              "returnFees": {{ s.return_fees | default: 'FreeReturn' | prepend: 'https://schema.org/' | json }}
+            }
+          {%- endif -%}
+        }
+    }
+    </script>
+  {%- endif -%}
+
+  {%- if s.article_enabled and request.page_type == 'article' -%}
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      "@id": {{ article.url | prepend: site | append: '#article' | json }},
+      "headline": {{ article.title | json }},
+      "url": {{ article.url | prepend: site | json }},
+      "datePublished": {{ article.published_at | date: '%Y-%m-%dT%H:%M:%S%z' | json }},
+      "dateModified": {{ article.updated_at | default: article.published_at | date: '%Y-%m-%dT%H:%M:%S%z' | json }},
+      "author": { "@type": "Person", "name": {{ article.author | default: org_name | json }} },
+      "publisher": { "@id": {{ org_id | json }} },
+      "mainEntityOfPage": { "@type": "WebPage", "@id": {{ article.url | prepend: site | json }} }
+      {%- if article.excerpt_or_content != blank -%}
+      , "description": {{ article.excerpt_or_content | strip_html | strip_newlines | truncate: 300 | json }}
+      {%- endif -%}
+      {%- if article.image -%}, "image": {{ article.image | image_url: width: 1600 | prepend: 'https:' | json }}{%- endif -%}
+    }
+    </script>
+  {%- endif -%}
+
+  {%- if s.collection_enabled and request.page_type == 'collection' -%}
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      "@id": {{ collection.url | prepend: site | append: '#collection' | json }},
+      "name": {{ collection.title | json }},
+      "url": {{ collection.url | prepend: site | json }},
+      "isPartOf": { "@id": {{ site_id | json }} }
+      {%- if collection.description != blank -%}
+      , "description": {{ collection.description | strip_html | strip_newlines | truncate: 300 | json }}
+      {%- endif -%}
+      , "mainEntity": {
+          "@type": "ItemList",
+          "numberOfItems": {{ collection.products_count }},
+          "itemListElement": [
+            {%- for p in collection.products limit: 24 -%}
+            {
+              "@type": "ListItem",
+              "position": {{ forloop.index }},
+              "url": {{ p.url | prepend: site | json }},
+              "name": {{ p.title | json }}
+            }{%- unless forloop.last -%},{%- endunless -%}
+            {%- endfor -%}
+          ]
+        }
+    }
+    </script>
+  {%- endif -%}
+
+  {%- if s.breadcrumb_enabled -%}
+    {%- liquid
+      assign crumb_name = ''
+      assign crumb_url = ''
+      case request.page_type
+        when 'product'
+          assign crumb_name = product.title
+          assign crumb_url = product.url
+        when 'collection'
+          assign crumb_name = collection.title
+          assign crumb_url = collection.url
+        when 'article'
+          assign crumb_name = article.title
+          assign crumb_url = article.url
+        when 'blog'
+          assign crumb_name = blog.title
+          assign crumb_url = blog.url
+        when 'page'
+          assign crumb_name = page.title
+          assign crumb_url = page.url
+      endcase
+    -%}
+    {%- if crumb_name != blank -%}
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": {{ org_url | append: '/' | json }} },
+        { "@type": "ListItem", "position": 2, "name": {{ crumb_name | json }}, "item": {{ crumb_url | prepend: site | json }} }
+      ]
+    }
+    </script>
+    {%- endif -%}
+  {%- endif -%}
+
+  {%- if s.page_schemas != blank and request.page_type == 'page' -%}
+    {%- for entry in s.page_schemas -%}
+      {%- if entry.handle == page.handle and entry.data != blank -%}
+        <script type="application/ld+json">{{ entry.data | json }}</script>
+      {%- endif -%}
+    {%- endfor -%}
+  {%- endif -%}
+
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "GrowthLife Schema",
+  "target": "head",
+  "settings": []
+}
+{% endschema %}
