@@ -14,6 +14,10 @@
   assign org_url = s.org_url | default: site
   assign org_id = org_url | append: '/#organization'
   assign site_id = org_url | append: '/#website'
+  assign braces = '{}'
+  assign ob = braces | slice: 0
+  assign cb = braces | slice: 1
+  assign search_url = org_url | append: '/search?q=' | append: ob | append: 'search_term_string' | append: cb
 -%}
 
 {%- if s -%}
@@ -59,7 +63,7 @@
           "publisher": { "@id": {{ org_id | json }} },
           "potentialAction": {
             "@type": "SearchAction",
-            "target": { "@type": "EntryPoint", "urlTemplate": "{{ org_url | escape }}/search?q={search_term_string}" },
+            "target": { "@type": "EntryPoint", "urlTemplate": {{ search_url | json }} },
             "query-input": "required name=search_term_string"
           }
         }
