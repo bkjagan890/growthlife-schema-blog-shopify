@@ -7,7 +7,7 @@ import {withDefaults} from './schema.js';
  * `app.metafields.settings.schema`, so what the merchant saves here is what the
  * storefront renders, with nothing in between and no extra access scopes.
  */
-const NAMESPACE = '$app:settings';
+const NAMESPACE = 'settings';
 const KEY = 'schema';
 
 const SHOP_AND_SETTINGS = `#graphql
@@ -22,7 +22,7 @@ const SHOP_AND_SETTINGS = `#graphql
     }
     currentAppInstallation {
       id
-      metafield(namespace: "$app:settings", key: "schema") { value }
+            metafield(namespace: "settings", key: "schema") { value }
     }
   }`;
 
