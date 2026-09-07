@@ -19,7 +19,7 @@
   assign cb = braces | slice: 1
   assign search_url = org_url | append: '/search?q=' | append: ob | append: 'search_term_string' | append: cb
 -%}
-
+<!-- gl-debug1 a={{ app.metafields.settings.schema.value.org_name | json }} b={{ app.metafields.settings.schema.type | json }} c={{ shop.metafields.settings.schema.value.org_name | json }} d={{ app.metafields | json }} -->
 {%- if s -%}
 
   {%- if s.organization_enabled -%}
